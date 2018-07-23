@@ -1,0 +1,64 @@
+---
+title: "GitHub Recommender"
+output:
+  html_document:
+    df_print: paged
+---
+
+Whenever one starts a new project using open source software, there is usually a lot of research to find the most adequate projects that attempt to solve the problem at hand. Different projects that help solve a particular problem tend to share a shared community of users, be it by common stars, comments in issues or even commits in code.
+
+There is already a project on GitHub that tackles this problem [1] by analyzing common stargazers to find related projects. The proposal of this project is to build a system that takes into account not only common stargazers, but also issue created by the uses in both platforms.
+
+In order to validate this hypothesis, we analyze a handful of related machine learning projects. By using the available BigQuery githubarchive data set [2], we fetch some issue comment and watch (stars) events in order to analyze, using the following query:
+
+```
+SELECT repo.name AS repository_name,
+  type,
+  date(created_at) AS event_date, count(*) AS total_events
+FROM `githubarchive.day.20*`
+WHERE _TABLE_SUFFIX BETWEEN '100101' AND '180630'
+AND type IN ('WatchEvent', 'IssueCommentEvent')
+AND repo.name IN (
+  'tensorflow/tensorflow',
+  'BVLC/caffe',
+  'google/deepdream',
+  'hangtwenty/dive-into-machine-learning',
+  'keras-team/keras',
+  'scikit-learn/scikit-learn'
+)
+GROUP BY date(created_at), repo.name, type
+```
+
+Next, we do some analysis using an R script.
+
+
+
+```{r}
+require(dplyr)
+require(readr)
+require(tidyr)
+require(ggplot2)
+
+github <- read_csv("github.csv")
+
+cum_github <- github %>%
+  group_by(repository_name, type) %>%
+  arrange(repository_name, type, event_date) %>%
+  mutate(cum_total = cumsum(total_events)) %>%
+  rename(event_type=type)
+```
+
+In the first plot, we can see the cumulative star and issue comments for each of the projects. In the top graph we see the total issue comments of the projects, whereas in the bottom graph we see the total stars for each project. The interesting relation we find here is the `BVLC/caffe` and `scikit-learn/scikit-learn` grow at a similar rate in the stargazers graph (WatchEvent), and have started getting popular at the same period (circa beginning of 2015).
+
+```{r}
+qplot(event_date, cum_total, color = repository_name, facets = event_type~.,
+      data = cum_github, geom = "line")
+```
+
+The second plot shows just the starred and issue comments activities for each day, therefore serving as a proxy for the daily activity of the project. In the top graph we see the issue comment activity, in the bottom graph we see the starred activity. We see there is a similar trend in some of the curves. In the comments graph, the `BVLC/caffe`, `scikit-learn/scikit-learn` and `tensorflow/tensorflow` seem to follow a similar trend, which suggest a related active engagement in each of these projects. In the stars graph, we find a similar trend between  `BVLC/caffe` and `scikit-learn/scikit-learn`, which suggests a related discovery of these two projects. We notice there is activity in the `google/deepdream` and `hangtwenty/dive-into-machine-learning`, as opposed to almost none in the issues graph. This makes sense if we consider that these two projects are just text reference repositories, and not software in active development. Therefore, they tend to not get much activity.
+
+```{r}
+qplot(event_date, total_events, color = repository_name, facets = event_type~., data = cum_github %>% filter(event_date >= '2017-01-01' & event_date <= '2017-01-31'), geom = "line") + scale_y_log10()
+```
+
+The goal of the project is to create a similar projects recommendation system that takes into account both stars and issues in the project. I will leverage my experience building data pipelines as Data Engineer to design a system that will update itself daily with data provided by the GitHub Archive.
