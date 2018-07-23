@@ -3,6 +3,7 @@ title: "GitHub Recommender"
 output:
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 Whenever one starts a new project using open source software, there is usually a lot of research to find the most adequate projects that attempt to solve the problem at hand. Different projects that help solve a particular problem tend to share a shared community of users, be it by common stars, comments in issues or even commits in code.
@@ -58,7 +59,59 @@ qplot(event_date, cum_total, color = repository_name, facets = event_type~.,
 The second plot shows just the starred and issue comments activities for each day, therefore serving as a proxy for the daily activity of the project. In the top graph we see the issue comment activity, in the bottom graph we see the starred activity. We see there is a similar trend in some of the curves. In the comments graph, the `BVLC/caffe`, `scikit-learn/scikit-learn` and `tensorflow/tensorflow` seem to follow a similar trend, which suggest a related active engagement in each of these projects. In the stars graph, we find a similar trend between  `BVLC/caffe` and `scikit-learn/scikit-learn`, which suggests a related discovery of these two projects. We notice there is activity in the `google/deepdream` and `hangtwenty/dive-into-machine-learning`, as opposed to almost none in the issues graph. This makes sense if we consider that these two projects are just text reference repositories, and not software in active development. Therefore, they tend to not get much activity.
 
 ```{r}
-qplot(event_date, total_events, color = repository_name, facets = event_type~., data = cum_github %>% filter(event_date >= '2017-01-01' & event_date <= '2017-01-31'), geom = "line") + scale_y_log10()
+qplot(event_date, total_events, color = repository_name, facets = type~., data = github %>%
+  filter(event_date >= '2017-01-01' & event_date <= '2017-01-31'), geom = "line")
 ```
 
-The goal of the project is to create a similar projects recommendation system that takes into account both stars and issues in the project. I will leverage my experience building data pipelines as Data Engineer to design a system that will update itself daily with data provided by the GitHub Archive.
+We try next a different approach, searching for all Tensorflow users with a minimum of 3 comments, look for projects that have at least 100 comments in a given period, for which the Tensorflow users have also commented. We execute the following query:
+
+```
+WITH github_days AS (
+  SELECT actor.login AS login,
+    repo.url AS repo_url,
+    date(created_at) AS event_date,
+    type
+  FROM `githubarchive.day.20*`
+  WHERE _TABLE_SUFFIX BETWEEN '140101' AND '180630'
+  AND type IN ('WatchEvent', 'IssueCommentEvent')
+), tensorflow_activity AS (
+  SELECT login
+  FROM github_days
+  WHERE type IN ('IssueCommentEvent')
+  AND repo_url IN (
+    'https://api.github.com/repos/tensorflow/tensorflow'
+  )
+  GROUP BY login
+  HAVING count(*) >= 3
+), popular_projects AS (
+  SELECT repo_url
+  FROM github_days
+  WHERE type IN ('IssueCommentEvent')
+  GROUP BY repo_url
+  HAVING count(*) >= 100
+)
+
+SELECT repo_url, event_date, count(*) AS total_events
+FROM github_days
+WHERE login IN (SELECT login FROM tensorflow_activity)
+AND repo_url IN (SELECT repo_url FROM popular_projects)
+AND type = 'IssueCommentEvent'
+GROUP BY repo_url, event_date
+```
+
+Finally, using R, we look look at the rank of the projects with most comments.
+
+```{r}
+tensorflow_activity <- read_csv("tensorflowactivity.csv")
+most_similar_projects <- tensorflow_activity %>%
+  group_by(repo_url) %>%
+  summarize(total_comments = sum(total_events)) %>%
+  arrange(desc(total_comments)) %>%
+  head(10)
+
+knitr::kable(most_similar_projects)
+```
+
+In the table, we see Tensorflow in the first place, which is to be expected. However, we also find many other projects that are all related to Machine Learning and Data Engineering, some of which were discovered by this author during the research for this essay.
+
+The goal of the project is to create a similar projects recommendation system that takes into account both stars and issues in the project, and, even though the time available for research is very short, we found some interesting findings. For the project, I want to explore other possibilities, such as using a graph database to find unexpected correlations, as well as I intend to build a self feeding system, that will update itself based on new data provided by the GitHub archive.
