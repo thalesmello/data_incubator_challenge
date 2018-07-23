@@ -115,3 +115,6 @@ knitr::kable(most_similar_projects)
 In the table, we see Tensorflow in the first place, which is to be expected. However, we also find many other projects that are all related to Machine Learning and Data Engineering, some of which were discovered by this author during the research for this essay.
 
 The goal of the project is to create a similar projects recommendation system that takes into account both stars and issues in the project, and, even though the time available for research is very short, we found some interesting findings. For the project, I want to explore other possibilities, such as using a graph database to find unexpected correlations, as well as I intend to build a self feeding system, that will update itself based on new data provided by the GitHub archive.
+
+[1]: https://github.com/anvaka/ghindex
+[2]:  https://bigquery.cloud.google.com/table/githubarchive
