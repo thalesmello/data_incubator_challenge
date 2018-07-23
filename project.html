@@ -128,8 +128,8 @@ $(document).ready(function () {
 
 
 <p>Whenever one starts a new project using open source software, there is usually a lot of research to find the most adequate projects that attempt to solve the problem at hand. Different projects that help solve a particular problem tend to share a shared community of users, be it by common stars, comments in issues or even commits in code.</p>
-<p>There is already a project on GitHub that tackles this problem [1] by analyzing common stargazers to find related projects. The proposal of this project is to build a system that takes into account not only common stargazers, but also issue created by the uses in both platforms.</p>
-<p>In order to validate this hypothesis, we analyze a handful of related machine learning projects. By using the available BigQuery githubarchive data set [2], we fetch some issue comment and watch (stars) events in order to analyze, using the following query:</p>
+<p>There is already a project on GitHub that tackles this problem <a href="https://github.com/anvaka/ghindex">1</a> by analyzing common stargazers to find related projects. The proposal of this project is to build a system that takes into account not only common stargazers, but also issue created by the uses in both platforms.</p>
+<p>In order to validate this hypothesis, we analyze a handful of related machine learning projects. By using the available BigQuery githubarchive data set <a href="https://bigquery.cloud.google.com/table/githubarchive">2</a>, we fetch some issue comment and watch (stars) events in order to analyze, using the following query:</p>
 <pre><code>SELECT repo.name AS repository_name,
   type,
   date(created_at) AS event_date, count(*) AS total_events
